@@ -13,6 +13,4 @@ variables to fit your needs or change around the wiring to fit the pins that con
 As a heads up, most codes will require an ultrasonic sensor. We worked with a HC-sr04 sensor, however, other sensors may also be compatible.
 There are some codes that utilize different instruments as well, such as line tracking modules.
 
-We will shortly include another link to a GitHub account, which will include more codes for the same Elegoo Smart Robotic Car. 
-
 Thank you and we hope this code may be useful for you.
