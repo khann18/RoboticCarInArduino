@@ -1,0 +1,97 @@
+/* Determines the speed of a moving object using an ultrasonic sensor. */
+
+#include <Servo.h> //servo library
+Servo myservo; // create servo object to control servo
+int Echo = A4;  
+int Trig = A5; 
+int in1 = 9;
+int in2 = 8;
+int in3 = 7;
+int in4 = 6;
+int ENA = 11;
+int ENB = 5;
+double mDist1, mDist2, mDist3, mDist4 = 0;
+
+
+void _mStop()
+{
+  digitalWrite(ENA,LOW);
+  digitalWrite(ENB,LOW);
+  Serial.println("Stop!");
+} 
+
+//Ultrasonic distance measurement Sub function
+double Distance_test()   
+{
+    bool go = true;
+    while(go)
+    {
+      digitalWrite(Trig, LOW);   
+      delayMicroseconds(2);
+      digitalWrite(Trig, HIGH);  
+      delayMicroseconds(20);
+      digitalWrite(Trig, LOW);   
+      float Fdistance1 = pulseIn(Echo, HIGH);  
+      Fdistance1 = Fdistance1/58;  
+  
+      digitalWrite(Trig, LOW);   
+      delayMicroseconds(2);
+      digitalWrite(Trig, HIGH);  
+      delayMicroseconds(20);
+      digitalWrite(Trig, LOW);   
+      float Fdistance2 = pulseIn(Echo, HIGH);  
+      Fdistance2 = Fdistance2/58;  
+
+      if(Fdistance2 - Fdistance1 < 2)
+      {
+        double Fdist = Fdistance1 + Fdistance2;
+        Fdist = Fdist/2;
+        return Fdist;
+      }
+    }
+}  
+void setup() 
+{
+  myservo.attach(3);// attach servo on pin 3 to servo object
+  Serial.begin(9600);     
+  pinMode(Echo, INPUT);    
+  pinMode(Trig, OUTPUT);  
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+  pinMode(in3,OUTPUT);
+  pinMode(in4,OUTPUT);
+  pinMode(ENA,OUTPUT);
+  pinMode(ENB,OUTPUT);
+  _mStop();
+
+}
+
+void loop() 
+{
+  
+  double travelledPerSec = 0;
+  mDist1 = Distance_test();
+  mDist2 = Distance_test();
+  delay(500);
+  mDist3 = Distance_test();
+  mDist4 = Distance_test();
+  
+  if((abs(mDist1 - mDist3) < 0.4) || (abs(mDist2 - mDist4) < 0.4))
+  {
+    travelledPerSec = 0;
+  }
+  else
+  {
+    mDist1 = mDist1 + mDist2;
+    mDist1 = mDist1/2;
+    mDist2 = mDist3 + mDist4;
+    mDist2 = mDist2/2;
+    
+    travelledPerSec = mDist2 - mDist1;
+    travelledPerSec = travelledPerSec * 2;
+  }
+
+  Serial.print("The speed of the object is ");
+  Serial.print(travelledPerSec);
+  Serial.println(" cm/s.");
+}
