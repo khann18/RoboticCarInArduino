@@ -1,0 +1,198 @@
+/*If the lead car is within range of the second car, 
+the following car will continue forward. If not, car 
+two will stop and turn its ultrasonic left and right, 
+taking two comparable measurements at each point, 
+increasing the angle of the servo's turn each round. 
+Car two should turn a certain variable amount based 
+on what angle a moving object was sensed at.*/
+
+#include <Servo.h> //servo library
+Servo myservo; // create servo object to control servo
+int Echo = A4; //controls the ultrasonic
+int Trig = A5; //controls the ultrasoic
+int in1 = 9;  
+int in2 = 8;
+//motors must be set to these four pins
+int in3 = 7;
+int in4 = 6;
+int ENA = 11; //controls the right motors
+int ENB = 5; //controls the left motors
+int ABS = 120;  //controls the speed of the car by voltage
+                //car usually won't move below 80
+int mDist1, mDist2 = 0;  //where the front distance is recorded
+int rDist1, rDist2, lDist1, lDist2; //left and right distances
+
+void _mForward() //function to turn all four wheels and drive forward
+{
+ analogWrite(ENA,ABS);  //sets the right motors to voltage = ABS
+ analogWrite(ENB,ABS);  //sets the left motors to voltage = ABS
+ digitalWrite(in1,LOW);
+ digitalWrite(in2,HIGH);
+ digitalWrite(in3,LOW);
+ digitalWrite(in4,HIGH);
+ Serial.println("go forward!");
+ //serial printout viewable in serial monitor
+}
+
+void _mleft()  //function to turn car left (delay time for turn varies)
+{
+ analogWrite(ENA,135); //voltage sent to motors is higher so turns are faster
+ analogWrite(ENB,135);
+ digitalWrite(in1,LOW);
+ digitalWrite(in2,HIGH);
+ digitalWrite(in3,HIGH);
+ digitalWrite(in4,LOW);
+ Serial.println("veer left!");
+ //serial printout viewable in serial monitor
+}
+
+void _mright() //function to turn car right (delay time for turn varies)
+{
+ analogWrite(ENA,135); //voltage sent to motors is higher so turns are faster
+ analogWrite(ENB,135);
+ digitalWrite(in1,HIGH);
+ digitalWrite(in2,LOW);
+ digitalWrite(in3,LOW);
+ digitalWrite(in4,HIGH);
+ Serial.println("veer right!");
+ //serial printout viewable in serial monitor
+} 
+
+void _mStop() //function to stop car indefinately until other command
+{
+  digitalWrite(ENA,LOW); //sets motor voltage to lowest possible
+  digitalWrite(ENB,LOW);
+  Serial.println("Stop!");
+  //serial printout viewable in serial monitor
+} 
+
+//Ultrasonic distance measurement function
+int Distance_test()   
+{
+  digitalWrite(Trig, LOW);   
+  delayMicroseconds(2);
+  digitalWrite(Trig, HIGH);  
+  delayMicroseconds(20);
+  digitalWrite(Trig, LOW);   
+  float Fdistance = pulseIn(Echo, HIGH); //receives signal
+  Fdistance= Fdistance/58;  //converts to centimeters
+ 
+  return (int)Fdistance; //returns the distance in centimeters
+}  
+
+void setup() //executes before every run
+{ 
+  myservo.attach(3);// attach servo on pin 3 to servo object
+  Serial.begin(9600);     
+  pinMode(Echo, INPUT);    
+  pinMode(Trig, OUTPUT);  
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+  pinMode(in3,OUTPUT);
+  pinMode(in4,OUTPUT);
+  pinMode(ENA,OUTPUT);
+  pinMode(ENB,OUTPUT);
+  _mStop();
+} 
+
+void loop() 
+{ 
+    _mForward(); //car moves forward and takes continuous measurements
+    myservo.write(90);//setservo position according to scaled value  
+    mDist1 = Distance_test(); //takes first measurement
+    delay(20);
+    mDist2 = Distance_test(); //takes second measurement
+
+    Serial.print("Middle Distance 1: "); //prints first reading
+    Serial.println(mDist1);
+    Serial.print("Middle Distance 2: "); //prints second reading
+    Serial.println(mDist1);
+    
+    if ((mDist1 <= 80 && mDist1 > 30) || (mDist2 <= 80 && mDist2 > 30)) //if either of the readings are within the range, 
+                                                                        //then go forward because car one must still be there
+    { 
+      _mForward();
+    }
+    else if (mDist1 > 80 && mDist2 > 80) //initiate sequence to find car because front (mid) distance is too large for car one to be there
+    {
+      _mStop(); //stops in order to take accurate readings
+      Serial.println("Look right and look left because the car has gone out of view");
+      bool cont = true;
+      int degRight = 45;
+      int degLeft = 135;
+      while (cont)
+      {
+        myservo.write(degLeft);
+        Serial.print("Turn servo left at ");
+        Serial.println(degLeft);
+        delay(degLeft);
+        lDist1 = Distance_test();
+        delay(1500);
+        lDist2 = Distance_test();
+        myservo.write(degRight);
+        Serial.print("Turn servo right at ");
+        Serial.println(degRight);
+        delay(degLeft);
+        rDist1 = Distance_test();
+        delay(1500);
+        rDist2 = Distance_test();
+        Serial.print("LDist1: ");
+        Serial.println(lDist1);
+        Serial.print("LDist2: ");
+        Serial.println(lDist2);
+        Serial.print("RDistance1: ");
+        Serial.println(rDist1);
+        Serial.print("RDistance2: ");
+        Serial.println(rDist2);
+        
+        if (rDist1 < 200 && rDist1 < rDist2 && rDist2 < 200 && rDist2 - rDist1 > 1  && rDist2 - rDist1 < 30)
+        {
+          _mright();
+          delay(400);
+          _mForward();
+          delay(1000);
+          mDist1 = Distance_test();
+          delay(500);
+          mDist2 = Distance_test();
+          if (mDist2 - mDist1 < 10 && mDist2 - mDist1 > 1)
+          {
+            _mForward();
+            delay(1000);
+          }
+          cont = false;
+        }
+        else if (lDist1 < lDist2 && lDist1 < 200 && lDist2 < 200 && lDist2 - lDist1 > 1 && lDist2 - lDist1 < 30)
+        {
+          _mleft();//based on angle that it measures a car at, time the delay to be similar so that it turns to match
+          delay(400);
+          _mForward();
+          delay(1000);
+          mDist1 = Distance_test();
+          delay(500);
+          mDist2 = Distance_test();
+          if (mDist2 - mDist1 < 10 && mDist2 - mDist1 > 1)
+          {
+            _mForward();
+            delay(1000);
+          }
+          
+          cont = false;
+        }
+        else if (degRight > 5 && degLeft < 175)
+        {
+          degRight = degRight - 5;
+          degLeft = degLeft + 5;
+        }
+        else
+        {
+          degRight = 85;
+          degLeft = 95;
+        }
+      }
+    }
+    else if (mDist1 < 30 || mDist2 < 30)
+    {
+      _mStop();
+    }
+    
+}
