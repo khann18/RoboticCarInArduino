@@ -1,0 +1,297 @@
+/* PLEASE READ!
+ *  Description: This code has one of two robotic cars following the first car in a straight line. Car one will keep moving forward until it needs to turn 90˚ 
+ *  according to a predetermined route. Car two will sense car one's stop using an ultrasonic sensor, wait for car one to turn and move, then car two will move up to car one's old position 
+ *  and look right and left to sense movement on either side, then turning 90˚ toward the side on which the measurements are sensed to be progressively larger.
+ *  In this way, car 2 can remain behind car 1.
+ *  
+ *  This code requires an ultrasonic sensor, as well as two robotic cars.
+ */
+#include <Servo.h> //servo library
+Servo myservo; // create servo object to control servo
+int Echo = A4; //controls the ultrasonic
+int Trig = A5; //controls the ultrasoic
+int in1 = 9;  
+int in2 = 8;
+//motors must be set to these four pins
+int in3 = 7;
+int in4 = 6;
+int ENA = 11; //controls the right motors
+int ENB = 5; //controls the left motors
+int ABS = 110;//controls the speed of the car by voltage
+                //car usually won't move below 80
+int middleDistance = 0; //where the front distance is recorded
+int totalDistMoveUp = 880; //delay time nneeded for car 2 to move about 30 cm
+int spdUP[4] = {120,130,140,145}; //array of voltages to increase car 2's speed
+int spdDOWN[9] = {100, 90, 80, 70, 60, 50, 40, 30, 20};
+int rDist1, rDist2, rDist3, lDist1, lDist2, lDist3; //left and right distances
+
+void _mForward() //function to turn all four wheels and drive forward
+{
+ analogWrite(ENA,ABS);  //sets the right motors to voltage = ABS
+ analogWrite(ENB,ABS);  //sets the left motors to voltage = ABS
+ digitalWrite(in1,LOW);
+ digitalWrite(in2,HIGH);
+ digitalWrite(in3,LOW);
+ digitalWrite(in4,HIGH);
+ Serial.println("go forward!");
+ //serial printout viewable in serial monitor
+}
+
+void _mleft()  //function to turn car left (delay time for turn varies)
+{
+ analogWrite(ENA,135); //voltage sent to motors is higher so turns are faster
+ analogWrite(ENB,135);
+ digitalWrite(in1,LOW);
+ digitalWrite(in2,HIGH);
+ digitalWrite(in3,HIGH);
+ digitalWrite(in4,LOW);
+ Serial.println("veer left!");
+ //serial printout viewable in serial monitor
+}
+
+void _mright() //function to turn car right (delay time for turn varies)
+{
+ analogWrite(ENA,135); //voltage sent to motors is higher so turns are faster
+ analogWrite(ENB,135);
+ digitalWrite(in1,HIGH);
+ digitalWrite(in2,LOW);
+ digitalWrite(in3,LOW);
+ digitalWrite(in4,HIGH);
+ Serial.println("veer right!");
+ //serial printout viewable in serial monitor
+} 
+
+void _mStop() //function to stop car indefinately until other command
+{
+  digitalWrite(ENA,LOW); //sets motor voltage to lowest possible
+  digitalWrite(ENB,LOW);
+  Serial.println("Stop!");
+  //serial printout viewable in serial monitor
+} 
+
+ /*Ultrasonic distance measurement Sub function*/
+int Distance_test()   
+{
+  bool cont = true; //loop control
+  float Fdistance;
+  while (cont)
+  {
+    digitalWrite(Trig, LOW);   
+    delayMicroseconds(2);
+    digitalWrite(Trig, HIGH);  
+    delayMicroseconds(20);
+    digitalWrite(Trig, LOW);   
+    float Fdistance1 = pulseIn(Echo, HIGH);  
+    Fdistance1 = Fdistance1/58; 
+
+    digitalWrite(Trig, LOW);   
+    delayMicroseconds(2);
+    digitalWrite(Trig, HIGH);  
+    delayMicroseconds(20);
+    digitalWrite(Trig, LOW);   
+    float Fdistance2 = pulseIn(Echo, HIGH); 
+    Fdistance2 = Fdistance2/58;
+    Serial.print("Fdistance1: ");
+    Serial.println(Fdistance1);
+    Serial.print("Fdistance2: ");
+    Serial.println(Fdistance2);
+
+    if (abs(Fdistance1 - Fdistance2) < 12 || (Fdistance1 > 150 || Fdistance2 > 150))
+    {
+      Fdistance = (Fdistance1 + Fdistance2)/2;
+      cont = false;
+    }
+  }      
+  return (int)Fdistance;
+}  
+
+void _speedUp()
+{
+  int z = 0;
+  while (z < 4) 
+  {
+    delay(50);
+    ABS = spdUP[z];
+    analogWrite(ENA, ABS);
+    analogWrite(ENB, ABS);
+    middleDistance = Distance_test();
+    z++;
+    Serial.print("Speed up! ABS = ");
+    Serial.println(ABS);
+    if(middleDistance <= 65 && middleDistance > 45) 
+    {
+      ABS = 100;
+      analogWrite(ENA, ABS);
+      analogWrite(ENB, ABS);
+      z = 6;
+    }
+    else if(middleDistance <= 45)
+    {
+      _mStop();
+      z = 6;
+      Serial.println("Stop speeding up");
+    }
+    
+  }
+}
+
+void setup() 
+{ 
+  myservo.attach(3);// attach servo on pin 3 to servo object
+  Serial.begin(9600);     
+  pinMode(Echo, INPUT);    
+  pinMode(Trig, OUTPUT);  
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+  pinMode(in3,OUTPUT);
+  pinMode(in4,OUTPUT);
+  pinMode(ENA,OUTPUT);
+  pinMode(ENB,OUTPUT);
+  _mStop();
+} 
+
+void loop() 
+{   _mForward();
+    #define abs(x) ((x)>0?(x):-(x))
+    myservo.write(90);//setservo position according to scaled value
+    
+    #ifdef send
+    Serial.print("middleDistance=");
+    Serial.println(middleDistance);
+    #endif
+      
+    middleDistance = Distance_test();
+    
+    if (middleDistance <= 45)
+    {
+      _mStop();
+      int dis1;
+      dis1 = Distance_test();
+      delay(10);
+      int dis2;
+      dis2 = Distance_test();
+      delay(10);
+      int dis3;
+      dis3 = Distance_test();
+      delay(10);
+      
+      if ((dis1 == dis2) || (dis2 == dis3)) //then the first car must be stopped as well, about to turn
+      {
+        Serial.println("No relative motion detected. Wait for car 1 to move up");
+        delay(2600); //delay on 1st car between stop and turn + the delay of the turn
+        _mForward(); //go forward to take on old position of car 1
+        Serial.println("Move up to old position of car 1");
+        delay(totalDistMoveUp);
+        
+        _mStop(); //stop and then start looking around
+        delay(100);
+     
+        myservo.write(5); //check right to see if movement occurs (the right)
+        delay(300);
+        rDist1 = Distance_test(); 
+        delay(100);
+        rDist2 = Distance_test();  //record 3 distance measurements to be sure if there is motion
+        delay(100);
+        rDist3 = Distance_test();
+        Serial.print("rDist1: ");
+        Serial.println(rDist1);
+        Serial.print("rDist2: ");  //serial print the readings
+        Serial.println(rDist2);
+        Serial.print("rDist3: ");
+        Serial.println(rDist3);
+        delay(100);
+        myservo.write(175); //check left to see if movement occurs
+        delay(600);
+        lDist1 = Distance_test();
+        delay(100);
+        lDist2 = Distance_test();
+        delay(100);
+        lDist3 = Distance_test();
+        Serial.print("lDist1: " );
+        Serial.println(lDist1); 
+        Serial.print("lDist2: "); //record 3 distance measurements to be sure if there is motion
+        Serial.println(lDist2);
+        Serial.print("lDist3: ");
+        Serial.println(lDist3);
+        delay(100);
+        myservo.write(90); //turn the ultrasonic to face forward again
+
+        if(rDist2 > rDist1 && rDist3 > rDist2) //if the object is sensed to be progressively farther away
+                                               // then movement is sensed on the right
+        {
+          Serial.println("movement is sensed on the right");
+          _mright();
+          delay(600); // delay time for turn
+          _speedUp();            
+          
+        }
+        else if (lDist2 > lDist1 && lDist3 > lDist2)  //if the object is sensed to be progressively farther away
+                                                      // then movement is sensed on the right
+        {
+          Serial.println("movement is sensed on the left");
+          _mleft();
+          delay(350);
+          _speedUp();
+        }
+        else  //amount of movement is equal (bad detection or nothing moved on either side)
+        {
+          Serial.println("amount of movement sensed is equal");
+          _mForward();
+        }
+        _mForward(); //continue moving forward after turning
+      }
+      else  //if dist measurements are not equal car 1 must not be stopped, so car 2 must've stopped because it was travelling faster 
+      {  
+        delay(800); //hence, just wait for car one to get farther then go
+        _mForward();
+      }
+    }
+    else //if none of the conditions are true, just go forward
+    {
+      _mForward();
+    }
+ /*
+    if (middleDistance > 70) //function to speed up if car 2 is too slow, may not be necessary
+    {
+      int z = 0;
+      while (z < 6) 
+      {
+        delay(50);
+        ABS = spdUP[z];
+        analogWrite(ENA, ABS);
+        analogWrite(ENB, ABS);
+        middleDistance = Distance_test();
+        z++;
+        if(middleDistance <= 50) 
+        {
+          ABS = 110;
+          analogWrite(ENA, ABS);
+          analogWrite(ENB, ABS);
+          z = 6;
+        }
+      }
+    }
+    else if (middleDistance < 50) //function to slow down, may not be necessary anymore
+    {
+      int x = 0;
+      while(x < 9) 
+      {
+        delay(50);
+        ABS = spdDOWN[x];
+        analogWrite(ENA, ABS);
+        analogWrite(ENB, ABS);
+        middleDistance = Distance_test();
+        if (middleDistance >= 50) 
+        {
+          ABS = 100;
+          analogWrite(ENA, ABS);
+          analogWrite(ENB, ABS);
+          x = 10;
+        }
+        x++;
+      }
+    }
+    */
+}
+
+
